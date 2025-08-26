@@ -1,8 +1,6 @@
 import { startSchema } from '@/app/validation/start';
 import { authenticateParticipantCode } from '@/lib/authenticateParticipant';
-import { NextApiRequest, NextApiResponse } from 'next';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -48,9 +46,12 @@ export async function POST(req: Request) {
     maxAge: 60 * 60,
   });
 
-  return Response.json({
-    message: 'Successfully verified user.',
-  });
+  return Response.json(
+    {
+      message: 'Successfully verified user.',
+    },
+    { status: 200 }
+  );
   // return new Response('Successfully verified code.', {
   //   status: 200,
   //   headers: { 'Set-Cookie': `${code}:${sessionId}` },
