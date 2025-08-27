@@ -7,6 +7,7 @@ export async function authenticateParticipantCode(code: string) {
     .from('participant_codes')
     .select('*')
     .eq('code', code)
+    .eq('is_active', true)
     .single();
 
   if (error) {

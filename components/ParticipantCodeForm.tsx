@@ -77,11 +77,11 @@ export default function ParticipantCodeForm() {
                 />
               </FormControl>
               <FormMessage className="font-medium text-sm" />
-              {/* {isSuccess && (
+              {isSuccess && (
                 <p className="text-green-600">
                   The experiment will begin shortly.
                 </p>
-              )} */}
+              )}
               <p></p>
             </FormItem>
           )}
@@ -102,10 +102,6 @@ export default function ParticipantCodeForm() {
             )}
           </Button>
         </div>
-        {/* <Label htmlFor="participant-code" className="mt-2 mb-1 text-zinc-500">
-            Kode Partisipan
-          </Label>
-          <Input id="participant-code" type="text" className="mb-2" /> */}
       </form>
     </Form>
   );
