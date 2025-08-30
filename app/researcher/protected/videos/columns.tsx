@@ -10,7 +10,7 @@ export type VideoRow = {
   url: string;
   sex?: string;
   nar_level?: string;
-  thumbnail_url?: string;
+  thumbnail_proxy_url?: string;
   is_active: boolean;
 };
 
@@ -44,10 +44,10 @@ export const columns: ColumnDef<VideoRow>[] = [
     },
   },
   {
-    accessorKey: 'thumbnail_url',
+    accessorKey: 'thumbnail_proxy_url',
     header: 'Thumbnail',
     cell: ({ row }) => {
-      const url = row.getValue('thumbnail_url') as string | undefined;
+      const url = row.getValue('thumbnail_proxy_url') as string | undefined;
       if (!url) return <span className="text-gray-400">No thumbnail</span>;
       return (
         <div className="w-16 h-12 bg-gray-200 rounded overflow-hidden">

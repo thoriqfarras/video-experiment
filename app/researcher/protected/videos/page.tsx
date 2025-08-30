@@ -15,7 +15,7 @@ export default async function ProtectedVideosPage() {
 
   const { data } = await supabase
     .from('videos')
-    .select('id, title, group, url, sex, nar_level, thumbnail_url, is_active')
+    .select('id, title, group, url, sex, nar_level, thumbnail_url, thumbnail_proxy_url, is_active')
     .eq('is_active', true);
 
   return (

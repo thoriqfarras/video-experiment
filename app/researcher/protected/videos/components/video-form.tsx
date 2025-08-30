@@ -55,6 +55,38 @@ const convertDriveUrlToProxy = (url: string): string => {
   return url;
 };
 
+// Helper function to convert Google Drive sharing links to embedded iframe URLs
+const convertDriveUrlToEmbedded = (url: string): string => {
+  if (!url) return url;
+  
+  // Remove any trailing slashes and query parameters
+  const cleanUrl = url.split('?')[0].replace(/\/$/, '');
+  
+  // Pattern 1: https://drive.google.com/file/d/FILE_ID/view
+  const filePattern1 = /https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+  const match1 = cleanUrl.match(filePattern1);
+  if (match1) {
+    return `https://drive.google.com/file/d/${match1[1]}/preview`;
+  }
+  
+  // Pattern 2: https://drive.google.com/open?id=FILE_ID
+  const filePattern2 = /https:\/\/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/;
+  const match2 = cleanUrl.match(filePattern2);
+  if (match2) {
+    return `https://drive.google.com/file/d/${match2[1]}/preview`;
+  }
+  
+  // Pattern 3: https://drive.google.com/file/d/FILE_ID/preview (already in correct format)
+  const filePattern3 = /https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)\/preview/;
+  const match3 = cleanUrl.match(filePattern3);
+  if (match3) {
+    return url; // Already in correct format
+  }
+  
+  // If it's not a Drive URL, return as is
+  return url;
+};
+
 type Video = {
   id?: string;
   title: string;
@@ -71,7 +103,7 @@ const schema = z.object({
   group: z.coerce.number().int().refine((v) => v === 1 || v === 2, { message: 'Group must be 1 or 2' }),
   sex: z.enum(['m', 'f']).optional(),
   nar_level: z.enum(['high', 'low']).optional(),
-  thumbnail_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  thumbnail_url: z.url('Must be a valid URL').optional().or(z.literal('')),
 });
 type Schema = z.infer<typeof schema>;
 
@@ -87,6 +119,7 @@ export default function VideoForm({
   const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [urlConverted, setUrlConverted] = useState(false);
+  const [videoUrlConverted, setVideoUrlConverted] = useState(false);
   const router = useRouter();
 
   const form = useForm<Schema>({
@@ -107,6 +140,7 @@ export default function VideoForm({
     if (open) {
       setSubmitError(null);
       setUrlConverted(false);
+      setVideoUrlConverted(false);
       form.reset({
         title: initialData?.title ?? '',
         url: initialData?.url ?? '',
@@ -127,15 +161,26 @@ export default function VideoForm({
     // Convert Google Drive URL to proxy URL if needed
     const originalUrl = values.thumbnail_url;
     const convertedUrl = values.thumbnail_url ? convertDriveUrlToProxy(values.thumbnail_url) : values.thumbnail_url;
+    
+    // Convert Google Drive video URL to embedded URL if needed
+    const originalVideoUrl = values.url;
+    const convertedVideoUrl = convertDriveUrlToEmbedded(values.url);
+    
     const processedValues = {
       ...values,
-      thumbnail_url: convertedUrl
+      url: convertedVideoUrl,
+      thumbnail_proxy_url: convertedUrl
     };
     
-    // Show conversion indicator if URL was changed
+    // Show conversion indicators if URLs were changed
     if (originalUrl && originalUrl !== convertedUrl) {
       setUrlConverted(true);
       setTimeout(() => setUrlConverted(false), 3000); // Hide after 3 seconds
+    }
+    
+    if (originalVideoUrl !== convertedVideoUrl) {
+      setVideoUrlConverted(true);
+      setTimeout(() => setVideoUrlConverted(false), 3000); // Hide after 3 seconds
     }
     const handleServerError = (msg?: string) => {
       const text = (msg ?? '').toLowerCase();
@@ -162,7 +207,7 @@ export default function VideoForm({
     if (mode === 'edit' && initialData?.id) {
       const { error } = await supabase
         .from('videos')
-        .update({ title: processedValues.title, url: processedValues.url, group: processedValues.group, sex: processedValues.sex, nar_level: processedValues.nar_level, thumbnail_url: processedValues.thumbnail_url })
+        .update({ title: processedValues.title, url: processedValues.url, group: processedValues.group, sex: processedValues.sex, nar_level: processedValues.nar_level, thumbnail_proxy_url: processedValues.thumbnail_proxy_url, thumbnail_url: originalUrl })
         .eq('id', initialData.id);
       if (error) {
         console.error(error);
@@ -172,7 +217,7 @@ export default function VideoForm({
     } else {
       const { error } = await supabase
         .from('videos')
-        .insert({ title: processedValues.title, url: processedValues.url, group: processedValues.group, sex: processedValues.sex, nar_level: processedValues.nar_level, thumbnail_url: processedValues.thumbnail_url, is_active: true });
+        .insert({ title: processedValues.title, url: processedValues.url, group: processedValues.group, sex: processedValues.sex, nar_level: processedValues.nar_level, thumbnail_proxy_url: processedValues.thumbnail_proxy_url, thumbnail_url: originalUrl, is_active: true });
       if (error) {
         console.error(error);
         handleServerError(error.message);
@@ -226,9 +271,21 @@ export default function VideoForm({
                 <FormItem>
                   <FormLabel>URL</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input 
+                      {...field} 
+                      placeholder="https://drive.google.com/file/d/... or any video URL"
+                      type="url"
+                    />
                   </FormControl>
                   <FormMessage />
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can paste a Google Drive sharing link for videos.
+                  </p>
+                  {videoUrlConverted && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✅ Google Drive video link converted to embedded URL
+                    </p>
+                  )}
                 </FormItem>
               )}
             />
@@ -310,7 +367,7 @@ export default function VideoForm({
                   </FormControl>
                   <FormMessage />
                   <p className="text-xs text-gray-500 mt-1">
-                    You can paste a Google Drive sharing link - it will be automatically converted to a proxy URL to avoid CORS issues.
+                    You can paste a Google Drive sharing link.
                   </p>
                   {urlConverted && (
                     <p className="text-xs text-green-600 mt-1">
