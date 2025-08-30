@@ -23,18 +23,51 @@ export function CreatedAtCell({ value }: { value: string | Date }) {
   return <span>{createdAt}</span>;
 }
 
-export function ResultCell({ isUsed }: { isUsed: boolean | undefined }) {
-  if (isUsed) {
+export function ResultCell({ isUsed, code }: { isUsed: boolean | undefined; code: string | undefined }) {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (code: string) => {
+    if (isExporting) return;
+    
+    setIsExporting(true);
+    try {
+      console.log('Attempting to fetch:', `/api/export-results?code=${code}`); // Debug log
+      const response = await fetch(`/api/export-results?code=${code}`);
+      
+      console.log('Response status:', response.status); // Debug log
+      
+      if (!response.ok) {
+        throw new Error('Failed to export results');
+      }
+      
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${code}_result.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting results:', error);
+      alert('Failed to export results. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  if (isUsed && code) {
     return (
       <Button
         type="button"
         size="sm"
         variant="outline"
-        onClick={() => {
-          // Hook up export flow here
-        }}
+        onClick={() => handleExport(code)}
+        disabled={isExporting}
       >
-        Export as .csv
+        {isExporting ? 'Exporting...' : 'Export as .csv'}
       </Button>
     );
   }

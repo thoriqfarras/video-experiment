@@ -62,6 +62,30 @@ export function DataTable<TData, TValue>({
             />
           </div>
           <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">Sex</label>
+            <select
+              className="h-9 rounded-md border bg-transparent px-3 text-sm"
+              value={(table.getColumn('sex')?.getFilterValue() as string | undefined) ?? ''}
+              onChange={(e) => table.getColumn('sex')?.setFilterValue(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="m">M</option>
+              <option value="f">F</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">Nar Level</label>
+            <select
+              className="h-9 rounded-md border bg-transparent px-3 text-sm"
+              value={(table.getColumn('nar_level')?.getFilterValue() as string | undefined) ?? ''}
+              onChange={(e) => table.getColumn('nar_level')?.setFilterValue(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
             <label className="text-sm text-muted-foreground">Group</label>
             <select
               className="h-9 rounded-md border bg-transparent px-3 text-sm"
@@ -80,8 +104,18 @@ export function DataTable<TData, TValue>({
             </select>
           </div>
         </div>
-        <div className="text-sm text-muted-foreground">
-          {table.getRowModel().rows.length} rows
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              table.resetColumnFilters();
+            }}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Clear filters
+          </button>
+          <div className="text-sm text-muted-foreground">
+            {table.getRowModel().rows.length} rows
+          </div>
         </div>
       </div>
       <div className="w-full">

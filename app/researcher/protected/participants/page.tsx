@@ -15,7 +15,7 @@ export default async function ProtectedPage() {
 
   const { data } = await supabase
     .from('participant_codes')
-    .select('id, code, group, is_used, created_at, is_active')
+    .select('id, code, group, is_used, created_at, used_at, is_active')
     .eq('is_active', true);
 
   return (

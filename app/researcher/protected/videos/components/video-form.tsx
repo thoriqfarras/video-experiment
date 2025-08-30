@@ -21,17 +21,57 @@ import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+// Helper function to convert Google Drive sharing links to proxy URLs
+const convertDriveUrlToProxy = (url: string): string => {
+  if (!url) return url;
+  
+  // Remove any trailing slashes and query parameters
+  const cleanUrl = url.split('?')[0].replace(/\/$/, '');
+  
+  // Pattern 1: https://drive.google.com/file/d/FILE_ID/view
+  const filePattern1 = /https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+  const match1 = cleanUrl.match(filePattern1);
+  if (match1) {
+    const driveUrl = `https://drive.google.com/uc?export=view&id=${match1[1]}`;
+    return `/api/proxy-image?url=${encodeURIComponent(driveUrl)}`;
+  }
+  
+  // Pattern 2: https://drive.google.com/open?id=FILE_ID
+  const filePattern2 = /https:\/\/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/;
+  const match2 = cleanUrl.match(filePattern2);
+  if (match2) {
+    const driveUrl = `https://drive.google.com/uc?export=view&id=${match2[1]}`;
+    return `/api/proxy-image?url=${encodeURIComponent(driveUrl)}`;
+  }
+  
+  // Pattern 3: https://drive.google.com/uc?export=view&id=FILE_ID (already in correct format)
+  const filePattern3 = /https:\/\/drive\.google\.com\/uc\?export=view&id=([a-zA-Z0-9_-]+)/;
+  const match3 = cleanUrl.match(filePattern3);
+  if (match3) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  
+  // If it's not a Drive URL, return as is
+  return url;
+};
+
 type Video = {
   id?: string;
   title: string;
   url: string;
   group: number;
+  sex?: string;
+  nar_level?: string;
+  thumbnail_url?: string;
 };
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   url: z.string().url('Must be a valid URL'),
   group: z.coerce.number().int().refine((v) => v === 1 || v === 2, { message: 'Group must be 1 or 2' }),
+  sex: z.enum(['m', 'f']).optional(),
+  nar_level: z.enum(['high', 'low']).optional(),
+  thumbnail_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
 });
 type Schema = z.infer<typeof schema>;
 
@@ -46,6 +86,7 @@ export default function VideoForm({
 }) {
   const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [urlConverted, setUrlConverted] = useState(false);
   const router = useRouter();
 
   const form = useForm<Schema>({
@@ -55,6 +96,9 @@ export default function VideoForm({
       title: initialData?.title ?? '',
       url: initialData?.url ?? '',
       group: (initialData?.group as number | undefined) ?? 1,
+      sex: (initialData?.sex as string | undefined) as 'm' | 'f' | undefined,
+      nar_level: (initialData?.nar_level as string | undefined) as 'high' | 'low' | undefined,
+      thumbnail_url: initialData?.thumbnail_url ?? '',
     },
     mode: 'onTouched',
   });
@@ -62,10 +106,14 @@ export default function VideoForm({
   useEffect(() => {
     if (open) {
       setSubmitError(null);
+      setUrlConverted(false);
       form.reset({
         title: initialData?.title ?? '',
         url: initialData?.url ?? '',
         group: (initialData?.group as number | undefined) ?? 1,
+        sex: (initialData?.sex as string | undefined) as 'm' | 'f' | undefined,
+        nar_level: (initialData?.nar_level as string | undefined) as 'high' | 'low' | undefined,
+        thumbnail_url: initialData?.thumbnail_url ?? '',
       });
     }
     // We intentionally do not include form.reset and initialData fields to avoid overwriting during typing
@@ -75,6 +123,20 @@ export default function VideoForm({
   const onSubmit: SubmitHandler<Schema> = async (values) => {
     const supabase = createClient();
     setSubmitError(null);
+    
+    // Convert Google Drive URL to proxy URL if needed
+    const originalUrl = values.thumbnail_url;
+    const convertedUrl = values.thumbnail_url ? convertDriveUrlToProxy(values.thumbnail_url) : values.thumbnail_url;
+    const processedValues = {
+      ...values,
+      thumbnail_url: convertedUrl
+    };
+    
+    // Show conversion indicator if URL was changed
+    if (originalUrl && originalUrl !== convertedUrl) {
+      setUrlConverted(true);
+      setTimeout(() => setUrlConverted(false), 3000); // Hide after 3 seconds
+    }
     const handleServerError = (msg?: string) => {
       const text = (msg ?? '').toLowerCase();
       const mentionsTitle = text.includes('title');
@@ -100,7 +162,7 @@ export default function VideoForm({
     if (mode === 'edit' && initialData?.id) {
       const { error } = await supabase
         .from('videos')
-        .update({ title: values.title, url: values.url, group: values.group })
+        .update({ title: processedValues.title, url: processedValues.url, group: processedValues.group, sex: processedValues.sex, nar_level: processedValues.nar_level, thumbnail_url: processedValues.thumbnail_url })
         .eq('id', initialData.id);
       if (error) {
         console.error(error);
@@ -110,7 +172,7 @@ export default function VideoForm({
     } else {
       const { error } = await supabase
         .from('videos')
-        .insert({ title: values.title, url: values.url, group: values.group, is_active: true });
+        .insert({ title: processedValues.title, url: processedValues.url, group: processedValues.group, sex: processedValues.sex, nar_level: processedValues.nar_level, thumbnail_url: processedValues.thumbnail_url, is_active: true });
       if (error) {
         console.error(error);
         handleServerError(error.message);
@@ -188,6 +250,73 @@ export default function VideoForm({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="sex"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sex</FormLabel>
+                  <FormControl>
+                    <select
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value as 'M' | 'F')}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Select</option>
+                      <option value="m">M</option>
+                      <option value="f">F</option>
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="nar_level"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nar Level</FormLabel>
+                  <FormControl>
+                    <select
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value as 'high' | 'low')}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Select</option>
+                      <option value="high">High</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="thumbnail_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Thumbnail URL</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field} 
+                      placeholder="https://drive.google.com/file/d/... or any image URL"
+                      type="url"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can paste a Google Drive sharing link - it will be automatically converted to a proxy URL to avoid CORS issues.
+                  </p>
+                  {urlConverted && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✅ Google Drive link converted to proxy URL
+                    </p>
+                  )}
                 </FormItem>
               )}
             />

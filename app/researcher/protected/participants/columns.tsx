@@ -11,6 +11,7 @@ export type ParticipantCodes = {
   group: number;
   is_used: boolean;
   created_at: Date;
+  used_at?: Date;
   is_active: boolean;
 };
 
@@ -21,6 +22,14 @@ export const columns: ColumnDef<ParticipantCodes>[] = [
   },
   { accessorKey: 'code', header: 'Code', cell: ({ row }) => <CodeCell value={row.getValue('code') as number | string | undefined} /> },
   { accessorKey: 'created_at', header: 'Generated at', cell: ({ row }) => <CreatedAtCell value={row.getValue('created_at') as string | Date} /> },
+  { 
+    accessorKey: 'used_at', 
+    header: 'Completed at', 
+    cell: ({ row }) => {
+      const value = row.getValue('used_at') as string | Date | undefined;
+      return value ? <CreatedAtCell value={value} /> : <span className="text-muted-foreground">Not completed</span>;
+    } 
+  },
   {
     accessorKey: 'group',
     header: 'Group',
@@ -30,6 +39,6 @@ export const columns: ColumnDef<ParticipantCodes>[] = [
       return Number(cell) === Number(value);
     },
   },
-  { accessorKey: 'is_used', header: 'Result', cell: ({ row }) => <ResultCell isUsed={row.getValue('is_used') as boolean | undefined} /> },
-  { id: 'actions', header: 'Actions', cell: ({ row }) => (<ParticipantsActionsCell id={row.getValue('id') as string} code={row.getValue('code') as number | string | undefined} />) },
+  { accessorKey: 'is_used', header: 'Result', cell: ({ row }) => <ResultCell isUsed={row.getValue('is_used') as boolean | undefined} code={row.getValue('code') as string | undefined} /> },
+  { id: 'actions', header: 'Actions', cell: ({ row }) => (<ParticipantsActionsCell id={row.getValue('id') as string} code={row.getValue('code') as string | undefined} />) },
 ];

@@ -7,7 +7,7 @@ export default function Landing() {
     <main className="min-h-screen flex flex-col items-center">
       <nav className="w-full py-2 px-3 flex justify-end">
         <Button variant="link" className="text-zinc-500">
-          <Link href="/researcher/auth/login">Masuk sebagai Peneliti</Link>
+          <Link href="/researcher/auth/login">Sign in as Researcher</Link>
         </Button>
       </nav>
       <ParticipantCodeForm />

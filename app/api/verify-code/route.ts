@@ -1,59 +1,89 @@
-import { startSchema } from '@/app/validation/start';
+import { NextResponse } from 'next/server';
 import { authenticateParticipantCode } from '@/lib/authenticateParticipant';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/client';
+import { createAdminClient } from '@/lib/supabase/admin';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  try {
+    const { code } = await req.json();
 
-  if (!body) {
-    return Response.json({ error: 'Missing code.' });
-  }
+    if (!code) {
+      return NextResponse.json(
+        { error: 'Participant code is required' },
+        { status: 400 }
+      );
+    }
 
-  const { data, error } = startSchema.safeParse(body);
+    const result = await authenticateParticipantCode(code);
 
-  if (error) {
-    return Response.json({ error: 'Invalid code.' });
-  }
+    if (result === 0) {
+      return NextResponse.json(
+        { error: "Code doesn't exist." },
+        { status: 400 }
+      );
+    }
 
-  const { code } = data;
+    if (result === 1) {
+      return NextResponse.json(
+        { error: 'Code has already been used.' },
+        { status: 400 }
+      );
+    }
 
-  const result = await authenticateParticipantCode(code);
+    if (result !== 2) {
+      return NextResponse.json(
+        { error: 'Invalid participant code' },
+        { status: 401 }
+      );
+    }
 
-  if (result === 0) {
-    return Response.json({ error: "Code doesn't exist." }, { status: 400 });
-  }
+    // Increment progress counter when participant starts (privileged write)
+    const supabase = await createClient();
+    const admin = await createAdminClient();
+    const { data: participantData, error: participantError } = await supabase
+      .from('participant_codes')
+      .select('id, progress_counter')
+      .eq('code', code)
+      .eq('is_active', true)
+      .single();
 
-  if (result === 1) {
-    return Response.json(
-      { error: 'Code has already been used.' },
-      { status: 400 }
+    if (!participantError && participantData) {
+      await admin
+        .from('participant_codes')
+        .update({ progress_counter: (participantData.progress_counter || 0) + 1 })
+        .eq('id', participantData.id);
+    }
+
+    const sessionId = crypto.randomUUID();
+
+    const response = NextResponse.json(
+      { message: 'Code verified successfully' },
+      { status: 200 }
+    );
+
+    // Set cookies
+    response.cookies.set('participant_code', code, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    response.cookies.set('session_id', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error in verify-code route:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
     );
   }
-
-  const sessionId = crypto.randomUUID();
-  const jar = await cookies();
-  // adjust maxAge as needed (e.g., 60*60 for 1h)
-  jar.set('participant_code', code, {
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax',
-    maxAge: 60 * 60,
-  });
-  jar.set('session_id', sessionId, {
-    httpOnly: true,
-    path: '/',
-    sameSite: 'lax',
-    maxAge: 60 * 60,
-  });
-
-  return Response.json(
-    {
-      message: 'Successfully verified user.',
-    },
-    { status: 200 }
-  );
-  // return new Response('Successfully verified code.', {
-  //   status: 200,
-  //   headers: { 'Set-Cookie': `${code}:${sessionId}` },
-  // });
 }
