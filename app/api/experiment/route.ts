@@ -152,6 +152,15 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // Debug environment variables
+  console.log('=== ENVIRONMENT DEBUG ===');
+  console.log('SUPABASE_URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log('SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log('SUPABASE_URL value:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 20) + '...');
+  console.log('SERVICE_ROLE_KEY starts with:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 10) + '...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('========================');
+  
   const jar = await cookies();
   const participantCode = jar.get('participant_code');
 
@@ -179,6 +188,10 @@ export async function POST(req: Request) {
 
   if (action === 'increment_progress') {
     // Increment progress counter
+    console.log('Attempting to update progress for participant:', participant.id);
+    console.log('Current progress:', participant.progress_counter);
+    console.log('New progress will be:', participant.progress_counter + 1);
+    
     const { error: updateError } = await admin
       .from('participant_codes')
       .update({ progress_counter: participant.progress_counter + 1 })
@@ -186,6 +199,7 @@ export async function POST(req: Request) {
 
     if (updateError) {
       console.error('Error updating progress:', updateError);
+      console.error('Error details:', JSON.stringify(updateError, null, 2));
       return Response.json({ error: 'Failed to update progress' }, { status: 500 });
     }
 
