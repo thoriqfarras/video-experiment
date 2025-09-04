@@ -77,11 +77,6 @@ export default function ParticipantCodeForm() {
                 />
               </FormControl>
               <FormMessage className="font-medium text-sm" />
-              {isSuccess && (
-                <p className="text-green-600">
-                  The experiment will begin shortly.
-                </p>
-              )}
               <p></p>
             </FormItem>
           )}
