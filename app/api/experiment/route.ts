@@ -50,7 +50,7 @@ export async function GET() {
     // Get videos for this participant's group
     const { data: videos, error: videosError } = await supabase
       .from('videos')
-      .select('id, url, group, sex, nar_level, thumbnail_url')
+      .select('id, url, group, sex, nar_level, thumbnail_proxy_url')
       .eq('group', participant.group)
       .eq('is_active', true);
 
@@ -93,7 +93,7 @@ export async function GET() {
   const videoIds = videoOrder.map(vo => vo.video_id);
   const { data: videos, error: videosError } = await supabase
     .from('videos')
-    .select('id, url, group, thumbnail_url')
+    .select('id, url, group, thumbnail_proxy_url')
     .in('id', videoIds);
 
   if (videosError || !videos) {
@@ -121,19 +121,10 @@ export async function GET() {
   };
 
 
-
   return Response.json(responseData);
 }
 
 export async function POST(req: Request) {
-  // Debug environment variables
-  console.log('=== ENVIRONMENT DEBUG ===');
-  console.log('SUPABASE_URL exists:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-  console.log('SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-  console.log('SUPABASE_URL value:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 20) + '...');
-  console.log('SERVICE_ROLE_KEY starts with:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 10) + '...');
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('========================');
   
   const jar = await cookies();
   const participantCode = jar.get('participant_code');
