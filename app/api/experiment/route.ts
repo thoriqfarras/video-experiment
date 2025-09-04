@@ -63,40 +63,14 @@ export async function GET() {
       return Response.json({ error: 'No videos available for this group' }, { status: 404 });
     }
 
-    // Build category buckets: 2 from each combination in order
-    const pickRandom = <T,>(arr: T[], count: number): T[] => {
-      const copy = [...arr];
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
-      }
-      return copy.slice(0, Math.min(count, copy.length));
-    };
-
-    const highM = (videos || []).filter((v: { nar_level?: string; sex?: string }) => v.nar_level === 'high' && v.sex === 'm');
-    const highF = (videos || []).filter((v: { nar_level?: string; sex?: string }) => v.nar_level === 'high' && v.sex === 'f');
-    const lowM = (videos || []).filter((v: { nar_level?: string; sex?: string }) => v.nar_level === 'low' && v.sex === 'm');
-    const lowF = (videos || []).filter((v: { nar_level?: string; sex?: string }) => v.nar_level === 'low' && v.sex === 'f');
-
-    if (highM.length < 2 || highF.length < 2 || lowM.length < 2 || lowF.length < 2) {
-      return Response.json({ error: 'Not enough videos per category to build the required set.' }, { status: 400 });
-    }
-
-    const selected = [
-      ...pickRandom(highM, 2),
-      ...pickRandom(highF, 2),
-      ...pickRandom(lowM, 2),
-      ...pickRandom(lowF, 2),
-    ];
-
     // Shuffle the final 8 videos to randomize their order
-    for (let i = selected.length - 1; i > 0; i--) {
+    for (let i = videos.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [selected[i], selected[j]] = [selected[j], selected[i]];
+      [videos[i], videos[j]] = [videos[j], videos[i]];
     }
 
     // Create video order records in the specified sequence
-    const orderRecords = selected.map((video: { id: string }, index: number) => ({
+    const orderRecords = videos.map((video: { id: string }, index: number) => ({
       participant_id: participant.id,
       video_id: video.id,
       order: index + 1,
