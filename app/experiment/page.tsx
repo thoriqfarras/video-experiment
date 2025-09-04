@@ -11,6 +11,7 @@ interface Video {
   group: number;
   order: number;
   thumbnail_url?: string;
+  thumbnail_proxy_url?: string;
 }
 
 interface Participant {
@@ -20,7 +21,7 @@ interface Participant {
   progress_counter: number;
 }
 
-type ExperimentState = 'loading' | 'watching' | 'ranking' | 'completed';
+type ExperimentState = 'loading' | 'watching' | 'completed';
 
 export default function ExperimentPage() {
   const router = useRouter();
@@ -29,16 +30,14 @@ export default function ExperimentPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [rankedVideos, setRankedVideos] = useState<Video[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoLoadTimedOut, setVideoLoadTimedOut] = useState(false);
   const [videoLoadTimerId, setVideoLoadTimerId] = useState<NodeJS.Timeout | null>(null);
-
-
 
   useEffect(() => {
     loadExperimentData();
@@ -86,6 +85,8 @@ export default function ExperimentPage() {
       }
       
       const data = await response.json();
+
+      console.log('data', data);
       
       // Check if the API returned an error
       if (data.error) {
@@ -111,13 +112,11 @@ export default function ExperimentPage() {
       // Check if participant has already completed the experiment
       if (progressCounter >= videoCount + 1) {
         setState('completed');
-      } else if (progressCounter >= videoCount) {
-        // All videos watched, move to ranking
-        setRankedVideos([...data.videos]);
-        setState('ranking');
       } else {
         // Continue from where they left off
         setCurrentVideoIndex(progressCounter);
+        // Set ranked videos to include videos that have been watched PLUS the current video
+        setRankedVideos(data.videos.slice(0, progressCounter + 1));
         setState('watching');
       }
     } catch (error) {
@@ -161,6 +160,13 @@ export default function ExperimentPage() {
     setShowConfirmDialog(true);
   };
 
+  const handleFinish = async () => {
+    if (!participant) return;
+
+    // Show finish confirmation dialog
+    setShowFinishDialog(true);
+  };
+
   const confirmNext = async () => {
     if (!participant) return;
 
@@ -184,19 +190,59 @@ export default function ExperimentPage() {
 
       const nextIndex = currentVideoIndex + 1;
 
-      if (nextIndex >= videos.length) {
-        // All videos watched, move to ranking
-        setRankedVideos([...videos]);
-        setState('ranking');
-      } else {
-        // Move to next video
-        setCurrentVideoIndex(nextIndex);
-      }
+              if (nextIndex >= videos.length) {
+          // All videos watched, submit rankings
+          await submitRankings();
+        } else {
+          // Move to next video - the current video is already in rankings, just add the next one
+          setCurrentVideoIndex(nextIndex);
+          setRankedVideos([...rankedVideos, videos[nextIndex]]);
+        }
     } catch (error) {
       console.error('Error updating progress:', error);
       setError('Failed to update progress. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const confirmFinish = async () => {
+    if (!participant) return;
+
+    setIsLoading(true);
+    setError(null);
+    setShowFinishDialog(false);
+
+    try {
+      await submitRankings();
+    } catch (error) {
+      console.error('Error finishing experiment:', error);
+      setError('Failed to finish experiment. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitRankings = async () => {
+    if (!participant) return;
+
+    try {
+      const response = await fetch('/api/experiment/rankings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rankings: rankedVideos }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit rankings');
+      }
+
+      setState('completed');
+    } catch (error) {
+      console.error('Error submitting rankings:', error);
+      throw error;
     }
   };
 
@@ -227,31 +273,6 @@ export default function ExperimentPage() {
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
-  };
-
-  const handleSubmitRankings = async () => {
-    if (!participant) return;
-
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('/api/experiment/rankings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ rankings: rankedVideos }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit rankings');
-      }
-
-      setState('completed');
-    } catch (error) {
-      console.error('Error submitting rankings:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   if (state === 'loading') {
@@ -296,7 +317,7 @@ export default function ExperimentPage() {
     );
   }
 
-  // Confirmation Dialog
+  // Confirmation Dialog for Next Video
   if (showConfirmDialog) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-black bg-opacity-50">
@@ -332,6 +353,42 @@ export default function ExperimentPage() {
     );
   }
 
+  // Confirmation Dialog for Finishing Experiment
+  if (showFinishDialog) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-8 max-w-md mx-4 shadow-xl">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+              <span className="text-2xl">✅</span>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Finish Experiment
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              This is the final video. Are you sure you want to finish the experiment and submit your rankings?
+            </p>
+            <div className="flex space-x-3">
+              <Button
+                onClick={() => setShowFinishDialog(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmFinish}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                Finish Experiment
+              </Button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (state === 'completed') {
     return (
       <main className="min-h-screen flex items-center justify-center">
@@ -343,90 +400,6 @@ export default function ExperimentPage() {
           <p className="text-sm text-gray-500 mt-2">
             Redirecting to landing page...
           </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (state === 'ranking') {
-    return (
-      <main className="min-h-screen bg-white p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold mb-2">Rank the Videos</h1>
-            <p className="text-gray-600 mb-4">
-              Please drag and drop the videos below to rank them in order of preference.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto">
-              <p className="text-sm text-blue-800">
-                <strong>Instructions:</strong> Drag each video to reorder them. The video at the top (Rank 1) should be one you perceive as being most narcissistic, 
-                and the video at the bottom should be one you perceive as being least narcissistic. You can drag videos up or down to change their ranking.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {rankedVideos.map((video, index) => (
-              <div
-                key={video.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
-                className={`
-                  p-4 border-2 border-gray-200 rounded-lg cursor-move
-                  ${draggedIndex === index ? 'border-blue-500 bg-blue-50' : 'bg-white'}
-                  hover:border-gray-300 transition-colors
-                `}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-12 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500 overflow-hidden relative">
-                    {video.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img 
-                        src={video.thumbnail_url} 
-                        alt={`Thumbnail for Video ${video.order}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.parentElement?.querySelector('.fallback-emoji');
-                          if (fallback) {
-                            fallback.classList.remove('hidden');
-                          }
-                        }}
-                        onLoad={(e) => {
-                          const fallback = e.currentTarget.parentElement?.querySelector('.fallback-emoji');
-                          if (fallback) {
-                            fallback.classList.add('hidden');
-                          }
-                        }}
-                      />
-                    ) : null}
-                    <span className={`text-xs fallback-emoji ${video.thumbnail_url ? 'hidden' : ''}`}>📹</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">Video {video.order}</h3>
-                    <p className="text-xs text-gray-400">Originally shown {video.order} of {videos.length}</p>
-                  </div>
-                  <div className="text-sm text-gray-400 flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">Rank:</span>
-                    <span className="font-semibold text-lg">{index + 1}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex justify-end">
-            <Button
-              onClick={handleSubmitRankings}
-              disabled={isSubmitting}
-              className="px-8 py-2"
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Rankings'}
-            </Button>
-          </div>
         </div>
       </main>
     );
@@ -447,6 +420,8 @@ export default function ExperimentPage() {
       </main>
     );
   }
+
+  const isLastVideo = currentVideoIndex === videos.length - 1;
 
   return (
     <main className="min-h-screen bg-white flex flex-col">
@@ -471,9 +446,10 @@ export default function ExperimentPage() {
         </div>
       </div>
 
-      {/* Video Player */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="max-w-4xl w-full">
+      {/* Main Content - Video Player and Rankings Side by Side */}
+      <div className="flex-1 flex p-8">
+        {/* Video Player Section */}
+        <div className="w-3/5 pr-6">
           <div className="text-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
               Video {currentVideo.order} of {videos.length}
@@ -504,6 +480,72 @@ export default function ExperimentPage() {
             }}
           />
         </div>
+
+        {/* Rankings Section */}
+        <div className="w-2/5 border-l pl-6">
+          <div className="sticky top-4">
+            <h3 className="text-lg font-semibold mb-4">Current Rankings</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Drag to reorder videos. Rank 1 = most like a leader, Rank 8 = least like a leader.
+            </p>
+            
+            {rankedVideos.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No videos ranked yet.</p>
+                <p className="text-sm mt-2">Watch this video to start ranking.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                {rankedVideos.map((video, index) => (
+                  <div
+                    key={video.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`
+                      p-3 border-2 border-gray-200 rounded-lg cursor-move
+                      ${draggedIndex === index ? 'border-blue-500 bg-blue-50' : 'bg-white'}
+                      hover:border-gray-300 transition-colors
+                    `}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-8 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500 overflow-hidden relative">
+                        {video.thumbnail_proxy_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img 
+                            src={video.thumbnail_proxy_url} 
+                            alt={`Thumbnail for Video ${video.order}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.fallback-emoji');
+                              if (fallback) {
+                                fallback.classList.remove('hidden');
+                              }
+                            }}
+                            onLoad={(e) => {
+                              const fallback = e.currentTarget.parentElement?.querySelector('.fallback-emoji');
+                              if (fallback) {
+                                fallback.classList.add('hidden');
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <span className={`text-xs fallback-emoji ${video.thumbnail_proxy_url ? 'hidden' : ''}`}>📹</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm truncate">Video {video.order}</h4>
+                        <p className="text-xs text-gray-400">Rank {index + 1}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Bottom Section */}
@@ -522,11 +564,15 @@ export default function ExperimentPage() {
             </div>
           )}
           <Button
-            onClick={handleNext}
+            onClick={isLastVideo ? handleFinish : handleNext}
             disabled={isLoading}
-            className="ml-4 px-8 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            className={`ml-4 px-8 py-2 disabled:opacity-50 ${
+              isLastVideo 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            {isLoading ? 'Updating...' : 'Next'}
+            {isLoading ? 'Updating...' : isLastVideo ? 'Finish Experiment' : 'Next'}
           </Button>
         </div>
       </div>
