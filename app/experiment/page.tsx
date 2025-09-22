@@ -37,7 +37,8 @@ export default function ExperimentPage() {
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoLoadTimedOut, setVideoLoadTimedOut] = useState(false);
-  const [videoLoadTimerId, setVideoLoadTimerId] = useState<NodeJS.Timeout | null>(null);
+  const [videoLoadTimerId, setVideoLoadTimerId] =
+    useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadExperimentData();
@@ -76,39 +77,39 @@ export default function ExperimentPage() {
   const loadExperimentData = async () => {
     try {
       const response = await fetch('/api/experiment');
-      
+
       // Handle non-JSON responses (like redirects)
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         router.push('/');
         return;
       }
-      
+
       const data = await response.json();
 
       console.log('data', data);
-      
+
       // Check if the API returned an error
       if (data.error) {
         throw new Error(data.error);
       }
-      
+
       if (!response.ok) {
-        throw new Error('Failed to load experiment data');
+        throw new Error('Gagal memuat data eksperimen');
       }
-      
+
       if (!data.participant || !data.videos) {
-        throw new Error('Invalid experiment data received');
+        throw new Error('Data eksperimen tidak valid diterima');
       }
-      
+
       setParticipant(data.participant);
       setVideos(data.videos);
-      
+
       // Ensure progress_counter is clamped to valid bounds [0, videoCount]
       const videoCount = data.videos.length;
-      const rawProgress = (data.participant.progress_counter ?? 0);
+      const rawProgress = data.participant.progress_counter ?? 0;
       const progressCounter = Math.max(0, Math.min(rawProgress, videoCount));
-      
+
       // Check if participant has already completed the experiment
       if (progressCounter >= videoCount + 1) {
         setState('completed');
@@ -121,33 +122,37 @@ export default function ExperimentPage() {
       }
     } catch (error) {
       console.error('Error loading experiment data:', error);
-      
+
       // Handle specific error types that should redirect to home
       if (error instanceof Error) {
         const errorMessage = error.message;
-        
+
         // Redirect for authentication/authorization errors
-        if (errorMessage.includes('No participant code found') || 
-            errorMessage.includes('Invalid participant code') ||
-            errorMessage.includes('already been used')) {
+        if (
+          errorMessage.includes('No participant code found') ||
+          errorMessage.includes('Invalid participant code') ||
+          errorMessage.includes('already been used')
+        ) {
           router.push('/');
           return;
         }
-        
+
         // For other errors, show error state
-        let displayMessage = 'Failed to load experiment data';
+        let displayMessage = 'Gagal memuat data eksperimen';
         if (errorMessage.includes('Failed to fetch')) {
-          displayMessage = 'Network error. Please check your internet connection and try again.';
+          displayMessage =
+            'Kesalahan jaringan. Mohon periksa koneksi internet Anda dan coba lagi.';
         } else if (errorMessage.includes('Failed to load experiment data')) {
-          displayMessage = 'Unable to start the experiment. Please verify your participant code.';
+          displayMessage =
+            'Tidak dapat memulai eksperimen. Mohon verifikasi kode peserta Anda.';
         } else {
           displayMessage = errorMessage;
         }
-        
+
         setError(displayMessage);
         setState('loading'); // Keep in loading state to show error
       } else {
-        setError('An unexpected error occurred');
+        setError('Terjadi kesalahan yang tidak terduga');
         setState('loading');
       }
     }
@@ -185,22 +190,22 @@ export default function ExperimentPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update progress');
+        throw new Error('Gagal memperbarui progress');
       }
 
       const nextIndex = currentVideoIndex + 1;
 
-              if (nextIndex >= videos.length) {
-          // All videos watched, submit rankings
-          await submitRankings();
-        } else {
-          // Move to next video - the current video is already in rankings, just add the next one
-          setCurrentVideoIndex(nextIndex);
-          setRankedVideos([...rankedVideos, videos[nextIndex]]);
-        }
+      if (nextIndex >= videos.length) {
+        // All videos watched, submit rankings
+        await submitRankings();
+      } else {
+        // Move to next video - the current video is already in rankings, just add the next one
+        setCurrentVideoIndex(nextIndex);
+        setRankedVideos([...rankedVideos, videos[nextIndex]]);
+      }
     } catch (error) {
       console.error('Error updating progress:', error);
-      setError('Failed to update progress. Please try again.');
+      setError('Gagal memperbarui progress. Mohon coba lagi.');
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +222,7 @@ export default function ExperimentPage() {
       await submitRankings();
     } catch (error) {
       console.error('Error finishing experiment:', error);
-      setError('Failed to finish experiment. Please try again.');
+      setError('Gagal menyelesaikan eksperimen. Mohon coba lagi.');
     } finally {
       setIsLoading(false);
     }
@@ -236,7 +241,7 @@ export default function ExperimentPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit rankings');
+        throw new Error('Gagal mengirim peringkat');
       }
 
       setState('completed');
@@ -259,14 +264,14 @@ export default function ExperimentPage() {
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    
+
     const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
     if (isNaN(draggedIndex) || draggedIndex === dropIndex) return;
 
     const newRankedVideos = [...rankedVideos];
     const [draggedVideo] = newRankedVideos.splice(draggedIndex, 1);
     newRankedVideos.splice(dropIndex, 0, draggedVideo);
-    
+
     setRankedVideos(newRankedVideos);
     setDraggedIndex(null);
   };
@@ -280,8 +285,10 @@ export default function ExperimentPage() {
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Loading experiment...</p>
-          <p className="text-sm text-gray-500 mt-2">Please wait while we prepare your videos...</p>
+          <p>Memuat eksperimen...</p>
+          <p className="text-sm text-gray-500 mt-2">
+            Mohon tunggu sementara kami menyiapkan video Anda...
+          </p>
         </div>
       </main>
     );
@@ -295,21 +302,27 @@ export default function ExperimentPage() {
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
             <span className="text-3xl">⚠️</span>
           </div>
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Failed to Start Experiment</h1>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Gagal Memulai Eksperimen
+          </h1>
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto mb-6">
             <p className="text-red-800 text-sm">
-              <strong>Error:</strong> {error}
+              <strong>Eror:</strong> {error}
             </p>
           </div>
           <p className="text-gray-600 mb-6">
-            Please check your participant code and try again. If the problem persists, contact the researcher.
+            Mohon periksa kode peserta Anda dan coba lagi. Jika masalah
+            berlanjut, hubungi peneliti.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700">
-              Try Again
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Coba Lagi
             </Button>
             <Button onClick={() => router.push('/')} variant="outline">
-              Back to Start
+              Kembali ke Awal
             </Button>
           </div>
         </div>
@@ -327,10 +340,11 @@ export default function ExperimentPage() {
               <span className="text-2xl">⚠️</span>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Confirm Next Video
+              Lanjut ke Video Berikutnya
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to proceed to the next video? You cannot go back to this video once you continue.
+              Apakah Anda yakin ingin melanjutkan ke video berikutnya? Anda
+              tidak dapat kembali ke video ini setelah melanjutkan.
             </p>
             <div className="flex space-x-3">
               <Button
@@ -338,13 +352,13 @@ export default function ExperimentPage() {
                 variant="outline"
                 className="flex-1"
               >
-                Cancel
+                Batal
               </Button>
               <Button
                 onClick={confirmNext}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
-                Continue
+                Lanjutkan
               </Button>
             </div>
           </div>
@@ -363,10 +377,11 @@ export default function ExperimentPage() {
               <span className="text-2xl">✅</span>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Finish Experiment
+              Selesaikan Eksperimen
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              This is the final video. Are you sure you want to finish the experiment and submit your rankings?
+              Ini adalah video terakhir. Apakah Anda yakin ingin menyelesaikan
+              eksperimen dan mengirimkan peringkat Anda?
             </p>
             <div className="flex space-x-3">
               <Button
@@ -374,13 +389,13 @@ export default function ExperimentPage() {
                 variant="outline"
                 className="flex-1"
               >
-                Cancel
+                Batal
               </Button>
               <Button
                 onClick={confirmFinish}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
-                Finish Experiment
+                Selesaikan Eksperimen
               </Button>
             </div>
           </div>
@@ -393,12 +408,14 @@ export default function ExperimentPage() {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-green-600 mb-4">Thank You!</h1>
+          <h1 className="text-4xl font-bold text-green-600 mb-4">
+            Terima Kasih!
+          </h1>
           <p className="text-lg text-gray-600">
-            You have successfully completed the experiment.
+            Anda telah berhasil menyelesaikan eksperimen.
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Redirecting to landing page...
+            Mengalihkan ke halaman utama...
           </p>
         </div>
       </main>
@@ -411,10 +428,12 @@ export default function ExperimentPage() {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-          <p className="text-gray-600">No video found. Please try refreshing the page.</p>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Kesalahan</h1>
+          <p className="text-gray-600">
+            Video tidak ditemukan. Mohon coba muat ulang halaman.
+          </p>
           <Button onClick={() => window.location.reload()} className="mt-4">
-            Refresh Page
+            Muat Ulang Halaman
           </Button>
         </div>
       </main>
@@ -428,19 +447,21 @@ export default function ExperimentPage() {
       {/* Participant Code */}
       <div className="text-center py-4 border-b">
         <h1 className="text-xl font-semibold">
-          Participant Code: {participant?.code}
+          Kode Peserta: {participant?.code}
         </h1>
         <div className="mt-2">
           <div className="flex items-center justify-center space-x-2">
             <span className="text-sm text-gray-600">Progress:</span>
             <span className="text-sm font-medium text-blue-600">
-              {currentVideoIndex + 1} of {videos.length} videos
+              {currentVideoIndex + 1} dari {videos.length} video
             </span>
           </div>
           <div className="w-48 h-2 bg-gray-200 rounded-full mt-2 mx-auto">
-            <div 
+            <div
               className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-              style={{ width: `${((currentVideoIndex + 1) / videos.length) * 100}%` }}
+              style={{
+                width: `${((currentVideoIndex + 1) / videos.length) * 100}%`,
+              }}
             />
           </div>
         </div>
@@ -452,19 +473,20 @@ export default function ExperimentPage() {
         <div className="w-3/5 pr-6">
           <div className="text-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              Video {currentVideo.order} of {videos.length}
+              Video {currentVideo.order} dari {videos.length}
             </h2>
             <p className="text-gray-600">
-              If the video does not load, you may refresh the page to retry.
+              Jika video tidak dimuat, Anda dapat memuat ulang halaman untuk
+              mencoba lagi.
             </p>
           </div>
-          
+
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
-          
+
           <iframe
             src={currentVideo.url}
             width="100%"
@@ -484,15 +506,19 @@ export default function ExperimentPage() {
         {/* Rankings Section */}
         <div className="w-2/5 border-l pl-6">
           <div className="sticky top-4">
-            <h3 className="text-lg font-semibold mb-4">Current Rankings</h3>
+            <h3 className="text-lg font-semibold mb-4">Peringkat Saat Ini</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Drag to reorder videos. Rank 1 = most like a leader, Rank 8 = least like a leader.
+              Seret untuk mengatur ulang video. Peringkat 1 = calon yang paling
+              Anda sukai sebagai pemimpin, Peringkat 8 = calon yang paling tidak
+              Anda sukai sebagai pemimpin..
             </p>
-            
+
             {rankedVideos.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                <p>No videos ranked yet.</p>
-                <p className="text-sm mt-2">Watch this video to start ranking.</p>
+                <p>Belum ada video yang diberi peringkat.</p>
+                <p className="text-sm mt-2">
+                  Tonton video ini untuk mulai memberi peringkat.
+                </p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
@@ -506,7 +532,11 @@ export default function ExperimentPage() {
                     onDragEnd={handleDragEnd}
                     className={`
                       p-3 border-2 border-gray-200 rounded-lg cursor-move
-                      ${draggedIndex === index ? 'border-blue-500 bg-blue-50' : 'bg-white'}
+                      ${
+                        draggedIndex === index
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'bg-white'
+                      }
                       hover:border-gray-300 transition-colors
                     `}
                   >
@@ -514,30 +544,46 @@ export default function ExperimentPage() {
                       <div className="w-12 h-8 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500 overflow-hidden relative">
                         {video.thumbnail_proxy_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img 
-                            src={video.thumbnail_proxy_url} 
+                          <img
+                            src={video.thumbnail_proxy_url}
                             alt={`Thumbnail for Video ${video.order}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
-                              const fallback = e.currentTarget.parentElement?.querySelector('.fallback-emoji');
+                              const fallback =
+                                e.currentTarget.parentElement?.querySelector(
+                                  '.fallback-emoji'
+                                );
                               if (fallback) {
                                 fallback.classList.remove('hidden');
                               }
                             }}
                             onLoad={(e) => {
-                              const fallback = e.currentTarget.parentElement?.querySelector('.fallback-emoji');
+                              const fallback =
+                                e.currentTarget.parentElement?.querySelector(
+                                  '.fallback-emoji'
+                                );
                               if (fallback) {
                                 fallback.classList.add('hidden');
                               }
                             }}
                           />
                         ) : null}
-                        <span className={`text-xs fallback-emoji ${video.thumbnail_proxy_url ? 'hidden' : ''}`}>📹</span>
+                        <span
+                          className={`text-xs fallback-emoji ${
+                            video.thumbnail_proxy_url ? 'hidden' : ''
+                          }`}
+                        >
+                          📹
+                        </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm truncate">Video {video.order}</h4>
-                        <p className="text-xs text-gray-400">Rank {index + 1}</p>
+                        <h4 className="font-medium text-sm truncate">
+                          Video {video.order}
+                        </h4>
+                        <p className="text-xs text-gray-400">
+                          Peringkat {index + 1}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -554,25 +600,32 @@ export default function ExperimentPage() {
           <div className="flex-1">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 inline-block">
               <p className="text-sm text-yellow-800 font-medium">
-                ⚠️ Make sure you watch until the end. Once you press next, you CANNOT go back.
+                ⚠️ Pastikan Anda menonton sampai selesai. Setelah Anda menekan
+                lanjut, Anda TIDAK DAPAT kembali.
               </p>
             </div>
           </div>
           {!isVideoReady && (
             <div className="mr-4 text-sm text-gray-500">
-              {videoLoadTimedOut ? 'Still loading the video… you can try waiting a bit longer.' : 'Loading video…'}
+              {videoLoadTimedOut
+                ? 'Video masih dimuat… Anda dapat mencoba menunggu sedikit lebih lama.'
+                : 'Memuat video…'}
             </div>
           )}
           <Button
             onClick={isLastVideo ? handleFinish : handleNext}
             disabled={isLoading}
             className={`ml-4 px-8 py-2 disabled:opacity-50 ${
-              isLastVideo 
-                ? 'bg-green-600 hover:bg-green-700' 
+              isLastVideo
+                ? 'bg-green-600 hover:bg-green-700'
                 : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {isLoading ? 'Updating...' : isLastVideo ? 'Finish Experiment' : 'Next'}
+            {isLoading
+              ? 'Memperbarui...'
+              : isLastVideo
+              ? 'Selesaikan Eksperimen'
+              : 'Lanjut'}
           </Button>
         </div>
       </div>
