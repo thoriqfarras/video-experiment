@@ -54,9 +54,9 @@ export default function ParticipantCodeForm() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="flex flex-col flex-1 justify-center"
       >
-        <h1 className="text-2xl font-bold">Welcome</h1>
+        <h1 className="text-2xl font-bold">Selamat Datang</h1>
         <p>
-          Enter your <b>Participant Code</b> to start the experiment.
+          Masukkan <b>Kode Partisipan</b> untuk memulai eksperimen.
         </p>
         <FormField
           control={form.control}
@@ -64,7 +64,7 @@ export default function ParticipantCodeForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-zinc-500 text-sm mt-2">
-                Participant Code
+                Kode Partisipan
               </FormLabel>
               <FormControl>
                 <Input
@@ -93,7 +93,7 @@ export default function ParticipantCodeForm() {
             {form.formState.isSubmitting ? (
               <Loader2 className="animate-spin" />
             ) : (
-              'Start'
+              'Mulai'
             )}
           </Button>
         </div>
