@@ -15,8 +15,11 @@ export default async function ProtectedPage() {
 
   const { data } = await supabase
     .from('participant_codes')
-    .select('id, code, group, is_used, created_at, used_at, is_active')
-    .eq('is_active', true);
+    .select(
+      'id, code, group, is_used, created_at, used_at, is_active, email, initial, sex'
+    )
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
 
   return (
     <div className="flex-1 w-full flex flex-col gap-12">

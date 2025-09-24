@@ -31,7 +31,9 @@ export function DataTable<TData, TValue>({
   columns,
   data,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'created_at', desc: true },
+  ]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
@@ -55,10 +57,21 @@ export function DataTable<TData, TValue>({
           <label className="text-sm text-muted-foreground">From</label>
           <Input
             type="date"
-            value={((table.getColumn('created_at')?.getFilterValue() as { from?: string; to?: string } | undefined)?.from) ?? ''}
+            value={
+              (
+                table.getColumn('created_at')?.getFilterValue() as
+                  | { from?: string; to?: string }
+                  | undefined
+              )?.from ?? ''
+            }
             onChange={(e) => {
-              const prev = (table.getColumn('created_at')?.getFilterValue() as { from?: string; to?: string } | undefined) ?? {};
-              table.getColumn('created_at')?.setFilterValue({ ...prev, from: e.target.value });
+              const prev =
+                (table.getColumn('created_at')?.getFilterValue() as
+                  | { from?: string; to?: string }
+                  | undefined) ?? {};
+              table
+                .getColumn('created_at')
+                ?.setFilterValue({ ...prev, from: e.target.value });
             }}
           />
         </div>
@@ -66,10 +79,21 @@ export function DataTable<TData, TValue>({
           <label className="text-sm text-muted-foreground">To</label>
           <Input
             type="date"
-            value={((table.getColumn('created_at')?.getFilterValue() as { from?: string; to?: string } | undefined)?.to) ?? ''}
+            value={
+              (
+                table.getColumn('created_at')?.getFilterValue() as
+                  | { from?: string; to?: string }
+                  | undefined
+              )?.to ?? ''
+            }
             onChange={(e) => {
-              const prev = (table.getColumn('created_at')?.getFilterValue() as { from?: string; to?: string } | undefined) ?? {};
-              table.getColumn('created_at')?.setFilterValue({ ...prev, to: e.target.value });
+              const prev =
+                (table.getColumn('created_at')?.getFilterValue() as
+                  | { from?: string; to?: string }
+                  | undefined) ?? {};
+              table
+                .getColumn('created_at')
+                ?.setFilterValue({ ...prev, to: e.target.value });
             }}
           />
         </div>
@@ -78,12 +102,17 @@ export function DataTable<TData, TValue>({
           <select
             className="h-9 rounded-md border bg-transparent px-3 text-sm"
             value={(() => {
-              const v = table.getColumn('group')?.getFilterValue() as number | '' | undefined;
+              const v = table.getColumn('group')?.getFilterValue() as
+                | number
+                | ''
+                | undefined;
               return v === undefined || v === '' ? '' : String(v);
             })()}
             onChange={(e) => {
               const val = e.target.value;
-              table.getColumn('group')?.setFilterValue(val === '' ? '' : Number(val));
+              table
+                .getColumn('group')
+                ?.setFilterValue(val === '' ? '' : Number(val));
             }}
           >
             <option value="">All</option>
@@ -96,7 +125,10 @@ export function DataTable<TData, TValue>({
           <select
             className="h-9 rounded-md border bg-transparent px-3 text-sm"
             value={(() => {
-              const v = table.getColumn('is_used')?.getFilterValue() as boolean | '' | undefined;
+              const v = table.getColumn('is_used')?.getFilterValue() as
+                | boolean
+                | ''
+                | undefined;
               if (v === '' || v === undefined || v === null) return '';
               return v ? 'true' : 'false';
             })()}
@@ -125,10 +157,17 @@ export function DataTable<TData, TValue>({
                     <TableHead key={header.id}>
                       {header.isPlaceholder ? null : (
                         <div
-                          className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
+                          className={
+                            header.column.getCanSort()
+                              ? 'cursor-pointer select-none'
+                              : ''
+                          }
                           onClick={header.column.getToggleSortingHandler()}
                         >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                           {header.column.getIsSorted() === 'asc'
                             ? ' \u2191'
                             : header.column.getIsSorted() === 'desc'
@@ -151,14 +190,20 @@ export function DataTable<TData, TValue>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -169,5 +214,3 @@ export function DataTable<TData, TValue>({
     </div>
   );
 }
-
-

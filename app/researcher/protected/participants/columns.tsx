@@ -1,7 +1,12 @@
 'use client';
 
 import { ColumnDef } from '@tanstack/react-table';
-import { ParticipantsActionsCell, CreatedAtCell, CodeCell, ResultCell } from './components/cells';
+import {
+  ParticipantsActionsCell,
+  CreatedAtCell,
+  CodeCell,
+  ResultCell,
+} from './components/cells';
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
@@ -13,22 +18,54 @@ export type ParticipantCodes = {
   created_at: Date;
   used_at?: Date;
   is_active: boolean;
+  email?: string | null;
+  initial?: string | null;
+  sex?: 'm' | 'f' | 'M' | 'F' | null;
 };
 
 export const columns: ColumnDef<ParticipantCodes>[] = [
   {
-    accessorKey: 'id',
-    header: 'ID',
+    accessorKey: 'code',
+    header: 'Code',
+    cell: ({ row }) => (
+      <CodeCell value={row.getValue('code') as number | string | undefined} />
+    ),
   },
-  { accessorKey: 'code', header: 'Code', cell: ({ row }) => <CodeCell value={row.getValue('code') as number | string | undefined} /> },
-  { accessorKey: 'created_at', header: 'Generated at', cell: ({ row }) => <CreatedAtCell value={row.getValue('created_at') as string | Date} /> },
-  { 
-    accessorKey: 'used_at', 
-    header: 'Completed at', 
+  { accessorKey: 'email', header: 'Email' },
+  { accessorKey: 'initial', header: 'Initial' },
+  {
+    accessorKey: 'sex',
+    header: 'Sex',
+    cell: ({ row }) => {
+      const val = row.getValue('sex') as string | null | undefined;
+      if (!val) return '';
+      const mapped =
+        val.toLowerCase() === 'm'
+          ? 'M'
+          : val.toLowerCase() === 'f'
+          ? 'F'
+          : String(val).toUpperCase();
+      return <span>{mapped}</span>;
+    },
+  },
+  {
+    accessorKey: 'created_at',
+    header: 'Generated at',
+    cell: ({ row }) => (
+      <CreatedAtCell value={row.getValue('created_at') as string | Date} />
+    ),
+  },
+  {
+    accessorKey: 'used_at',
+    header: 'Completed at',
     cell: ({ row }) => {
       const value = row.getValue('used_at') as string | Date | undefined;
-      return value ? <CreatedAtCell value={value} /> : <span className="text-muted-foreground">Not completed</span>;
-    } 
+      return value ? (
+        <CreatedAtCell value={value} />
+      ) : (
+        <span className="text-muted-foreground">Not completed</span>
+      );
+    },
   },
   {
     accessorKey: 'group',
@@ -39,6 +76,24 @@ export const columns: ColumnDef<ParticipantCodes>[] = [
       return Number(cell) === Number(value);
     },
   },
-  { accessorKey: 'is_used', header: 'Result', cell: ({ row }) => <ResultCell isUsed={row.getValue('is_used') as boolean | undefined} code={row.getValue('code') as string | undefined} /> },
-  { id: 'actions', header: 'Actions', cell: ({ row }) => (<ParticipantsActionsCell id={row.getValue('id') as string} code={row.getValue('code') as string | undefined} />) },
+  {
+    accessorKey: 'is_used',
+    header: 'Result',
+    cell: ({ row }) => (
+      <ResultCell
+        isUsed={row.getValue('is_used') as boolean | undefined}
+        code={row.getValue('code') as string | undefined}
+      />
+    ),
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    cell: ({ row }) => (
+      <ParticipantsActionsCell
+        id={row.original.id as string}
+        code={row.getValue('code') as string | undefined}
+      />
+    ),
+  },
 ];
