@@ -9,7 +9,10 @@ export async function GET() {
   const participantCode = jar.get('participant_code');
 
   if (!participantCode) {
-    return Response.json({ error: 'No participant code found. Please start from the beginning.' }, { status: 401 });
+    return Response.json(
+      { error: 'No participant code found. Please start from the beginning.' },
+      { status: 401 }
+    );
   }
 
   const supabase = await createClient();
@@ -24,11 +27,23 @@ export async function GET() {
     .single();
 
   if (participantError || !participant) {
-    return Response.json({ error: 'Invalid participant code. Please check your code and try again.' }, { status: 404 });
+    return Response.json(
+      {
+        error:
+          'Invalid participant code. Please check your code and try again.',
+      },
+      { status: 404 }
+    );
   }
 
   if (participant.is_used) {
-    return Response.json({ error: 'This participant code has already been used. Please contact the researcher for a new code.' }, { status: 403 });
+    return Response.json(
+      {
+        error:
+          'This participant code has already been used. Please contact the researcher for a new code.',
+      },
+      { status: 403 }
+    );
   }
 
   // Check if video order already exists for this participant
@@ -40,7 +55,10 @@ export async function GET() {
 
   if (orderError) {
     console.error('Error fetching video orders:', orderError);
-    return Response.json({ error: 'Failed to fetch video orders' }, { status: 500 });
+    return Response.json(
+      { error: 'Failed to fetch video orders' },
+      { status: 500 }
+    );
   }
 
   let videoOrder = existingOrder;
@@ -56,11 +74,17 @@ export async function GET() {
 
     if (videosError || !videos) {
       console.error('Error fetching videos:', videosError);
-      return Response.json({ error: 'Failed to fetch videos' }, { status: 500 });
+      return Response.json(
+        { error: 'Failed to fetch videos' },
+        { status: 500 }
+      );
     }
 
     if (videos.length === 0) {
-      return Response.json({ error: 'No videos available for this group' }, { status: 404 });
+      return Response.json(
+        { error: 'No videos available for this group' },
+        { status: 404 }
+      );
     }
 
     // Shuffle the final 8 videos to randomize their order
@@ -83,14 +107,17 @@ export async function GET() {
 
     if (insertError) {
       console.error('Error creating video orders:', insertError);
-      return Response.json({ error: 'Failed to create video orders' }, { status: 500 });
+      return Response.json(
+        { error: 'Failed to create video orders' },
+        { status: 500 }
+      );
     }
 
     videoOrder = orderRecords;
   }
 
   // Get full video details for the order
-  const videoIds = videoOrder.map(vo => vo.video_id);
+  const videoIds = videoOrder.map((vo) => vo.video_id);
   const { data: videos, error: videosError } = await supabase
     .from('videos')
     .select('id, url, group, thumbnail_proxy_url')
@@ -98,17 +125,22 @@ export async function GET() {
 
   if (videosError || !videos) {
     console.error('Error fetching video details:', videosError);
-    return Response.json({ error: 'Failed to fetch video details' }, { status: 500 });
+    return Response.json(
+      { error: 'Failed to fetch video details' },
+      { status: 500 }
+    );
   }
 
   // Map videos to their order
-  const orderedVideos = videoOrder.map(vo => {
-    const video = videos.find(v => v.id === vo.video_id);
-    return {
-      ...video,
-      order: vo.order,
-    };
-  }).sort((a, b) => a.order - b.order);
+  const orderedVideos = videoOrder
+    .map((vo) => {
+      const video = videos.find((v) => v.id === vo.video_id);
+      return {
+        ...video,
+        order: vo.order,
+      };
+    })
+    .sort((a, b) => a.order - b.order);
 
   const responseData = {
     participant: {
@@ -120,12 +152,10 @@ export async function GET() {
     videos: orderedVideos,
   };
 
-
   return Response.json(responseData);
 }
 
 export async function POST(req: Request) {
-  
   const jar = await cookies();
   const participantCode = jar.get('participant_code');
 
@@ -153,10 +183,13 @@ export async function POST(req: Request) {
 
   if (action === 'increment_progress') {
     // Increment progress counter
-    console.log('Attempting to update progress for participant:', participant.id);
+    console.log(
+      'Attempting to update progress for participant:',
+      participant.id
+    );
     console.log('Current progress:', participant.progress_counter);
     console.log('New progress will be:', participant.progress_counter + 1);
-    
+
     const { error: updateError } = await admin
       .from('participant_codes')
       .update({ progress_counter: participant.progress_counter + 1 })
@@ -165,7 +198,55 @@ export async function POST(req: Request) {
     if (updateError) {
       console.error('Error updating progress:', updateError);
       console.error('Error details:', JSON.stringify(updateError, null, 2));
-      return Response.json({ error: 'Failed to update progress' }, { status: 500 });
+      return Response.json(
+        { error: 'Failed to update progress' },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({ success: true });
+  }
+
+  if (action === 'save_profile') {
+    const { email, initial, sex } = body ?? {};
+
+    // Basic server-side validation
+    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+    const upperInitial =
+      typeof initial === 'string'
+        ? initial.trim().toUpperCase().slice(0, 6)
+        : '';
+    const normalizedSex =
+      typeof sex === 'string' &&
+      (sex.toLowerCase() === 'm' || sex.toLowerCase() === 'f')
+        ? sex.toLowerCase()
+        : '';
+
+    if (!trimmedEmail || !upperInitial || !normalizedSex) {
+      return Response.json({ error: 'Invalid profile data' }, { status: 400 });
+    }
+
+    // Only allow saving profile at the profile step (progress_counter === -1)
+    if ((participant.progress_counter ?? -1) !== -1) {
+      return Response.json({ error: 'Profile already saved' }, { status: 400 });
+    }
+
+    const { error: updateError } = await admin
+      .from('participant_codes')
+      .update({
+        email: trimmedEmail,
+        initial: upperInitial,
+        sex: normalizedSex,
+        progress_counter: 0,
+      })
+      .eq('id', participant.id);
+
+    if (updateError) {
+      console.error('Error saving profile:', updateError);
+      return Response.json(
+        { error: 'Failed to save profile' },
+        { status: 500 }
+      );
     }
 
     return Response.json({ success: true });

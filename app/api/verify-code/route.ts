@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { authenticateParticipantCode } from '@/lib/authenticateParticipant';
-import { createClient } from '@/lib/supabase/client';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 
@@ -39,22 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Increment progress counter when participant starts (privileged write)
-    const supabase = await createClient();
-    const admin = await createAdminClient();
-    const { data: participantData, error: participantError } = await supabase
-      .from('participant_codes')
-      .select('id, progress_counter')
-      .eq('code', code)
-      .eq('is_active', true)
-      .single();
-
-    if (!participantError && participantData) {
-      await admin
-        .from('participant_codes')
-        .update({ progress_counter: (participantData.progress_counter || 0) + 1 })
-        .eq('id', participantData.id);
-    }
+    // Do not increment progress here; the experiment flow will handle it
 
     const sessionId = crypto.randomUUID();
 
