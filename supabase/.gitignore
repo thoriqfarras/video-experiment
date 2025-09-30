@@ -9,3 +9,6 @@
 
 # seeder
 seed_local.sql
+
+# backups
+backups/

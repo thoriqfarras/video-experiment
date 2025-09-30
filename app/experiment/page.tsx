@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface Video {
   id: string;
@@ -21,7 +23,7 @@ interface Participant {
   progress_counter: number;
 }
 
-type ExperimentState = 'loading' | 'watching' | 'completed';
+type ExperimentState = 'loading' | 'profile' | 'watching' | 'completed';
 
 export default function ExperimentPage() {
   const router = useRouter();
@@ -39,6 +41,9 @@ export default function ExperimentPage() {
   const [videoLoadTimedOut, setVideoLoadTimedOut] = useState(false);
   const [videoLoadTimerId, setVideoLoadTimerId] =
     useState<NodeJS.Timeout | null>(null);
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileInitial, setProfileInitial] = useState('');
+  const [profileSex, setProfileSex] = useState<'m' | 'f' | ''>('');
 
   useEffect(() => {
     loadExperimentData();
@@ -105,18 +110,22 @@ export default function ExperimentPage() {
       setParticipant(data.participant);
       setVideos(data.videos);
 
-      // Ensure progress_counter is clamped to valid bounds [0, videoCount]
       const videoCount = data.videos.length;
-      const rawProgress = data.participant.progress_counter ?? 0;
+      const rawProgress = data.participant.progress_counter ?? -1;
+
+      // Profile step when progress_counter === -1
+      if (rawProgress === -1) {
+        setState('profile');
+        return;
+      }
+
+      // Ensure progress_counter is clamped to valid bounds [0, videoCount]
       const progressCounter = Math.max(0, Math.min(rawProgress, videoCount));
 
-      // Check if participant has already completed the experiment
       if (progressCounter >= videoCount + 1) {
         setState('completed');
       } else {
-        // Continue from where they left off
         setCurrentVideoIndex(progressCounter);
-        // Set ranked videos to include videos that have been watched PLUS the current video
         setRankedVideos(data.videos.slice(0, progressCounter + 1));
         setState('watching');
       }
@@ -155,6 +164,49 @@ export default function ExperimentPage() {
         setError('Terjadi kesalahan yang tidak terduga');
         setState('loading');
       }
+    }
+  };
+
+  const submitProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+    try {
+      const email = profileEmail.trim();
+      const initial = profileInitial.trim().toUpperCase().slice(0, 6);
+      const sex = profileSex;
+
+      if (!email || !initial || !sex) {
+        setError('Mohon lengkapi data profil.');
+        return;
+      }
+
+      // Basic email format check
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError('Email tidak valid.');
+        return;
+      }
+
+      const response = await fetch('/api/experiment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_profile', email, initial, sex }),
+      });
+
+      const resJson = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(resJson?.error || 'Gagal menyimpan profil');
+      }
+
+      // On success, start watching from first video
+      setState('watching');
+      setCurrentVideoIndex(0);
+      setRankedVideos(videos.slice(0, 1));
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setError(err instanceof Error ? err.message : 'Gagal menyimpan profil');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -289,6 +341,83 @@ export default function ExperimentPage() {
           <p className="text-sm text-gray-500 mt-2">
             Mohon tunggu sementara kami menyiapkan video Anda...
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  // Profile state
+  if (state === 'profile') {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white border rounded-lg p-6 shadow-sm">
+          <h1 className="text-xl font-semibold mb-1">Data Partisipan</h1>
+          <p className="text-sm text-gray-600 mb-4">
+            Mohon lengkapi informasi berikut sebelum memulai.
+          </p>
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+          <form onSubmit={submitProfile} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="nama@email.com"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="initial">Inisial (maks 6 huruf)</Label>
+              <Input
+                id="initial"
+                type="text"
+                value={profileInitial}
+                onChange={(e) =>
+                  setProfileInitial(e.target.value.toUpperCase().slice(0, 6))
+                }
+                placeholder="CNT OH"
+                maxLength={6}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Jenis Kelamin</Label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sex"
+                    value="m"
+                    checked={profileSex === 'm'}
+                    onChange={() => setProfileSex('m')}
+                    className="h-4 w-4"
+                    required
+                  />
+                  <span>Laki-laki</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sex"
+                    value="f"
+                    checked={profileSex === 'f'}
+                    onChange={() => setProfileSex('f')}
+                    className="h-4 w-4"
+                  />
+                  <span>Perempuan</span>
+                </label>
+              </div>
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Menyimpan...' : 'Lanjut'}
+            </Button>
+          </form>
         </div>
       </main>
     );
