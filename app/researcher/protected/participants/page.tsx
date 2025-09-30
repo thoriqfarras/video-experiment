@@ -20,6 +20,7 @@ export default async function ProtectedPage() {
 
   return (
     <div className="flex-1 w-full flex flex-col gap-12">
+      <p>Env: preview</p>
       <div className="flex flex-col gap-2 items-start">
         <div className="flex w-full justify-between items-center">
           <h2 className="font-bold text-2xl mb-4">Participants</h2>
